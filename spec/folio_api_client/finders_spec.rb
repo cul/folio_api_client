@@ -175,11 +175,15 @@ RSpec.describe FolioApiClient::Finders do
     let(:instance_record_hrid) { 'instance-record-hrid' }
 
     it 'returns the expected hash when an instance_record_id is given' do
-      expect(instance.marc_record_query(instance_record_id: instance_record_id)).to eq({ instanceId: instance_record_id })
+      expect(instance.marc_record_query(instance_record_id: instance_record_id)).to eq(
+        { instanceId: instance_record_id }
+      )
     end
 
     it 'returns the expected hash when an instance_record_hrid is given' do
-      expect(instance.marc_record_query(instance_record_hrid: instance_record_hrid)).to eq({ instanceHrid: instance_record_hrid })
+      expect(instance.marc_record_query(instance_record_hrid: instance_record_hrid)).to eq(
+        { instanceHrid: instance_record_hrid }
+      )
     end
 
     it 'raises an exception when no identifier parameter is given' do

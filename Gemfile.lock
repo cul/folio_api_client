@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    folio_api_client (0.2.0)
+    folio_api_client (0.3.0)
       faraday (~> 2.13)
       marc (~> 1.3)
       zeitwerk (~> 2.7)
