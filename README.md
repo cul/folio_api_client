@@ -4,9 +4,15 @@ A Ruby interface for making requests to the FOLIO ILS API (https://folio.org), i
 
 ## Installation
 
-At this time, this gem is only available on GitHub and has not been published to RubyGems yet.  You can include it in your Gemfile using this syntax:
+```bash
+bundle add folio_api_client
+```
 
-`gem 'folio_api_client', github: 'cul/folio_api_client', branch: 'main'`
+If bundler is not being used to manage dependencies, you can install the gem by running:
+
+```bash
+gem install folio_api_client
+```
 
 ## Usage
 

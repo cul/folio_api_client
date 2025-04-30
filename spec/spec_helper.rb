@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'folio_api_client'
+require 'factory_bot'
 
 RSpec.configure do |config|
   # Enable flags like --only-failures and --next-failure
@@ -19,4 +20,10 @@ RSpec.configure do |config|
   # aliases for `it`, `describe`, and `context` that include `:focus`
   # metadata: `fit`, `fdescribe` and `fcontext`, respectively.
   config.filter_run_when_matching :focus
+
+  config.include FactoryBot::Syntax::Methods
+
+  config.before(:suite) do
+    FactoryBot.find_definitions
+  end
 end

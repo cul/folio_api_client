@@ -5,9 +5,12 @@ loader = Zeitwerk::Loader.for_gem
 loader.setup # ready!
 
 require 'faraday'
+require 'marc'
 
 # A client used for making http requests (get/post/etc.) to the FOLIO ILS REST API.
 class FolioApiClient
+  include Finders
+
   attr_reader :config
 
   def initialize(config)
