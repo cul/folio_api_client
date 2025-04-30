@@ -42,6 +42,14 @@ client.get(path, params)
 client.post(path, body, content_type: 'application/json'))
 client.put(path, body, content_type: 'application/json'))
 client.delete(path, body, content_type: 'application/json'))
+
+# Other convenience methods:
+
+client.find_item_record(barcode: 'some-barcode')
+client.find_location_record(location_id: 'some-location-id')
+client.find_holdings_record(holdings_record_id: 'some-holdings-record-id')
+client.find_instance_record(instance_record_id: 'some-instance-record-id')
+client.find_marc_record(instance_record_id: 'some-instance-record-id') # returns a MARC::Record
 ```
 
 See [https://dev.folio.org/reference/api/](https://dev.folio.org/reference/api/) for the full list of available FOLIO API endpoints.
