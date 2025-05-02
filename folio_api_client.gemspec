@@ -12,6 +12,7 @@ Gem::Specification.new do |spec|
   spec.description =  'This gem provides an interface for making requests to the FOLIO ILS API, '\
                       'and makes session management easier.'
   spec.homepage = 'https://www.github.com/cul/folio_api_client'
+  spec.license = 'Apache-2.0'
   spec.required_ruby_version = '>= 3.2.0'
 
   spec.metadata['homepage_uri'] = spec.homepage
