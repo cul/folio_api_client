@@ -27,10 +27,6 @@ RSpec.describe FolioApiClient::Finders do
         allow(instance).to receive(:get).with(
           '/item-storage/items', { query: "barcode==#{barcode}", limit: 2 }
         ).and_return({ 'items' => [item_record1] })
-
-        allow(instance).to receive(:get).with(
-          "/item-storage/items/#{item_record1['id']}"
-        ).and_return(item_record1)
       end
 
       it 'returns the expected item record data' do
@@ -82,6 +78,23 @@ RSpec.describe FolioApiClient::Finders do
     end
   end
 
+  describe '#find_loan_type_record' do
+    let(:loan_type_id) { 'some-loan-type-record-id' }
+    let(:loan_type_record) do
+      { 'id' => loan_type_id, 'name' => 'general circulating' }
+    end
+
+    before do
+      allow(instance).to receive(:get).with(
+        "/loan-types/#{loan_type_id}"
+      ).and_return(loan_type_record)
+    end
+
+    it 'returns the loan type data' do
+      expect(instance.find_loan_type_record(loan_type_id: loan_type_id)).to eq(loan_type_record)
+    end
+  end
+
   describe '#find_holdings_record' do
     let(:holdings_record_id) { 'some-holdings-id' }
     let(:holdings_record) do
@@ -100,19 +113,36 @@ RSpec.describe FolioApiClient::Finders do
   end
 
   describe '#find_instance_record' do
-    let(:instance_record_id) { 'some-instance-id' }
     let(:instance_record) do
       { 'code' => 'ABC' }
     end
 
-    before do
-      allow(instance).to receive(:get).with(
-        "/instance-storage/instances/#{instance_record_id}"
-      ).and_return(instance_record)
+    context 'searching by instance_record_id' do
+      let(:instance_record_id) { 'some-instance-id' }
+
+      before do
+        allow(instance).to receive(:get).with(
+          '/instance-storage/instances', { limit: 2, query: "id==#{instance_record_id}" }
+        ).and_return({ 'instances' => [instance_record] })
+      end
+
+      it 'returns the instance record data' do
+        expect(instance.find_instance_record(instance_record_id: instance_record_id)).to eq(instance_record)
+      end
     end
 
-    it 'returns the instance record data' do
-      expect(instance.find_instance_record(instance_record_id: instance_record_id)).to eq(instance_record)
+    context 'searching by instance_record_hrid' do
+      let(:instance_record_hrid) { 'some-instance-id' }
+
+      before do
+        allow(instance).to receive(:get).with(
+          '/instance-storage/instances', { limit: 2, query: "hrid==#{instance_record_hrid}" }
+        ).and_return({ 'instances' => [instance_record] })
+      end
+
+      it 'returns the instance record data' do
+        expect(instance.find_instance_record(instance_record_hrid: instance_record_hrid)).to eq(instance_record)
+      end
     end
   end
 
@@ -120,74 +150,108 @@ RSpec.describe FolioApiClient::Finders do
     let(:instance_record_id) { 'some-instance-id' }
     let(:instance_record_hrid) { 'some-instance-hrid' }
 
-    context 'when at least one source record search result is found' do
-      let(:marc_001_value) { '15484475' }
-      let(:marc_json) do
-        { 'fields' => [{ '001' => marc_001_value }, { '005' => '20240625231052.0' }] }
-      end
-      let(:source_record_search_results) do
-        {
-          'totalRecords' => 1,
-          'sourceRecords' => [
-            { 'parsedRecord' => { 'content' => marc_json } }
-          ]
-        }
-      end
+    let(:marc_001_value) { '15484475' }
+    let(:marc_json_hash) do
+      { 'fields' => [{ '001' => marc_001_value }, { '005' => '20240625231052.0' }] }
+    end
+    let(:source_record) do
+      { 'parsedRecord' => { 'content' => marc_json_hash } }
+    end
+    let(:source_record_response_data) do
+      {
+        'totalRecords' => 1,
+        'sourceRecords' => [source_record]
+      }
+    end
 
-      it 'returns the expected MARC record, for an instance_record_id query' do
+    context 'searching by instance_record_id' do
+      before do
         allow(instance).to receive(:get).with(
           '/source-storage/source-records', { instanceId: instance_record_id }
-        ).and_return(source_record_search_results)
-
-        marc_record = instance.find_marc_record(instance_record_id: instance_record_id)
-        expect(marc_record).to be_a(MARC::Record)
-        expect(marc_record['001'].value).to eq(marc_001_value)
+        ).and_return(source_record_response_data)
       end
 
-      it 'returns the expected MARC record, for an instance_record_hrid query' do
-        allow(instance).to receive(:get).with(
-          '/source-storage/source-records', { instanceHrid: instance_record_hrid }
-        ).and_return(source_record_search_results)
-
-        marc_record = instance.find_marc_record(instance_record_hrid: instance_record_hrid)
+      it 'returns the expected Marc::Record and source record when one source record is found' do
+        marc_record, source_record = instance.find_marc_record(instance_record_id: instance_record_id)
         expect(marc_record).to be_a(MARC::Record)
         expect(marc_record['001'].value).to eq(marc_001_value)
+        expect(source_record).to have_key('parsedRecord')
+      end
+
+      context 'when no source record search results are found' do
+        let(:source_record_response_data) do
+          {
+            'totalRecords' => 0,
+            'sourceRecords' => []
+          }
+        end
+
+        it 'returns nil' do
+          expect(instance.find_marc_record(instance_record_id: instance_record_id)).to eq(nil)
+        end
+      end
+
+      context 'when multiple source record search results are found' do
+        let(:other_source_record) do
+          { 'parsedRecord' => { 'content' => { 'fake' => 'content' } } }
+        end
+        let(:source_record_response_data) do
+          {
+            'totalRecords' => 2,
+            'sourceRecords' => [source_record, other_source_record]
+          }
+        end
+
+        before do
+          allow(instance).to receive(:get).with(
+            '/source-storage/source-records', { instanceId: instance_record_id }
+          ).and_return(source_record_response_data)
+        end
+
+        it 'raises an error' do
+          expect {
+            instance.find_marc_record(instance_record_id: instance_record_id)
+          }.to raise_error(
+            FolioApiClient::Exceptions::UnexpectedMultipleRecordsFoundError
+          )
+        end
       end
     end
 
-    context 'when no source record search results are found' do
-      let(:source_record_search_results) do
-        { 'totalRecords' => 0, 'sourceRecords' => [] }
+    context 'searching by instance_record_hrid' do
+      before do
+        allow(instance).to receive(:get).with(
+          '/source-storage/source-records', { instanceHrid: instance_record_hrid }
+        ).and_return(source_record_response_data)
       end
 
-      it 'returns nil' do
-        allow(instance).to receive(:get).with(
-          '/source-storage/source-records', { instanceId: instance_record_id }
-        ).and_return(source_record_search_results)
-
-        expect(instance.find_marc_record(instance_record_id: instance_record_id)).to eq(nil)
+      it 'returns the expected Marc::Record and source record' do
+        marc_record, source_record = instance.find_marc_record(instance_record_hrid: instance_record_hrid)
+        expect(marc_record).to be_a(MARC::Record)
+        expect(marc_record['001'].value).to eq(marc_001_value)
+        expect(source_record).to have_key('parsedRecord')
       end
     end
   end
 
-  describe '#marc_record_query' do
+  describe '#source_record_query' do
     let(:instance_record_id) { 'instance-record-id' }
     let(:instance_record_hrid) { 'instance-record-hrid' }
 
     it 'returns the expected hash when an instance_record_id is given' do
-      expect(instance.marc_record_query(instance_record_id: instance_record_id)).to eq(
+      expect(instance.source_record_query(instance_record_id: instance_record_id)).to eq(
         { instanceId: instance_record_id }
       )
     end
 
     it 'returns the expected hash when an instance_record_hrid is given' do
-      expect(instance.marc_record_query(instance_record_hrid: instance_record_hrid)).to eq(
+      expect(instance.source_record_query(instance_record_hrid: instance_record_hrid)).to eq(
         { instanceHrid: instance_record_hrid }
       )
     end
 
     it 'raises an exception when no identifier parameter is given' do
-      expect { instance.marc_record_query }.to raise_error(FolioApiClient::Exceptions::MissingQueryFieldError)
+      expect { instance.source_record_query }.to raise_error(FolioApiClient::Exceptions::MissingQueryFieldError)
     end
   end
 end

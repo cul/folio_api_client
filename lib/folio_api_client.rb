@@ -38,7 +38,7 @@ class FolioApiClient
   end
 
   def retrieve_new_auth_token
-    response = connection.post('/authn/login', { username: config.username, password: config.password }.to_json)
+    response = connection.post('/authn/login', JSON.generate({ username: config.username, password: config.password }))
     response_data = JSON.parse(response.body)
     response_data['okapiToken']
   end
@@ -68,12 +68,12 @@ class FolioApiClient
   end
 
   def exec_request_with_body(method, path, body = nil, content_type: 'application/json')
-    body = body.to_json if content_type == 'application/json' && !body.is_a?(String)
+    body = JSON.generate(body) if content_type == 'application/json' && !body.is_a?(String)
     response = with_token_refresh_attempt_when_unauthorized do
       connection.send(method, path, body, { 'x-okapi-token': config.token, 'content-type': content_type })
     end
 
-    response.body.nil? ? nil : JSON.parse(response.body)
+    response.body.nil? || response.body == '' ? nil : JSON.parse(response.body)
   end
 
   def post(path, body = nil, content_type: 'application/json')

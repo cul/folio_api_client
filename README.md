@@ -49,8 +49,9 @@ client.find_item_record(barcode: 'some-barcode')
 client.find_location_record(location_id: 'some-location-id')
 client.find_holdings_record(holdings_record_id: 'some-holdings-record-id')
 client.find_instance_record(instance_record_id: 'some-instance-record-id')
-client.find_marc_record(instance_record_id: 'some-instance-record-id') # returns a MARC::Record
-client.find_marc_record(instance_record_hrid: 'some-instance-record-hrid') # returns a MARC::Record
+client.find_instance_record(instance_record_hrid: 'some-instance-record-hrid')
+client.find_marc_record(instance_record_id: 'some-instance-record-id') # returns [MARC::Record, Source Record Hash]
+client.find_marc_record(instance_record_hrid: 'some-instance-record-hrid') # returns a MARC::Record, Source Record Hash]
 ```
 
 See [https://dev.folio.org/reference/api/](https://dev.folio.org/reference/api/) for the full list of available FOLIO API endpoints.

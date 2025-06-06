@@ -68,15 +68,14 @@ RSpec.describe FolioApiClient do
     let(:token) { 'token123' }
     let(:response) do
       resp = instance_double(Faraday::Response)
-      allow(resp).to receive(:body).and_return({ 'okapiToken' => token }.to_json)
+      allow(resp).to receive(:body).and_return(JSON.generate({ 'okapiToken' => token }))
       resp
     end
 
     before do
       allow(instance.connection).to receive(:post).with(
         '/authn/login',
-        { username: username,
-          password: password }.to_json
+        JSON.generate({ username: username, password: password })
       ).and_return(response)
     end
 
@@ -146,7 +145,7 @@ RSpec.describe FolioApiClient do
     end
     let(:response) do
       resp = instance_double(Faraday::Response)
-      allow(resp).to receive(:body).and_return(expected_data.to_json)
+      allow(resp).to receive(:body).and_return(JSON.generate(expected_data))
       resp
     end
 
@@ -170,21 +169,24 @@ RSpec.describe FolioApiClient do
     let(:expected_data) do
       { 'abraham' => 'lincoln' }
     end
+    let(:expected_data_string) do
+      JSON.generate(expected_data)
+    end
     let(:http_method) { :post }
     let(:response) do
       resp = instance_double(Faraday::Response)
-      allow(resp).to receive(:body).and_return(expected_data.to_json)
+      allow(resp).to receive(:body).and_return(expected_data_string)
       resp
     end
 
     before do
       instance.config.token = 'token123'
       expect(instance.connection).to receive(http_method).with(
-        path, hash_for_body.to_json, { 'x-okapi-token': config.token, 'content-type': content_type }
+        path, JSON.generate(hash_for_body), { 'x-okapi-token': config.token, 'content-type': content_type }
       ).and_return(response)
     end
 
-    context 'with object body' do
+    context 'with object request body' do
       let(:body) { hash_for_body }
       let(:content_type) { 'application/json' }
 
@@ -193,12 +195,22 @@ RSpec.describe FolioApiClient do
       end
     end
 
-    context 'with string body' do
-      let(:body) { hash_for_body.to_json }
+    context 'with string request body' do
+      let(:body) { JSON.generate(hash_for_body) }
       let(:content_type) { 'application/json' }
 
       it 'performs the expected get request and returns the expected data' do
         expect(instance.exec_request_with_body(http_method, path, body)).to eq(expected_data)
+      end
+    end
+
+    context 'with empty response body' do
+      let(:body) { JSON.generate(hash_for_body) }
+      let(:content_type) { 'application/json' }
+      let(:expected_data_string) { '' }
+
+      it 'returns nil' do
+        expect(instance.exec_request_with_body(http_method, path, body)).to eq(nil)
       end
     end
   end
