@@ -146,7 +146,7 @@ RSpec.describe FolioApiClient::Finders do
     end
   end
 
-  describe '#find_marc_record' do
+  describe '#find_source_record' do
     let(:instance_record_id) { 'some-instance-id' }
     let(:instance_record_hrid) { 'some-instance-hrid' }
 
@@ -171,10 +171,8 @@ RSpec.describe FolioApiClient::Finders do
         ).and_return(source_record_response_data)
       end
 
-      it 'returns the expected Marc::Record and source record when one source record is found' do
-        marc_record, source_record = instance.find_marc_record(instance_record_id: instance_record_id)
-        expect(marc_record).to be_a(MARC::Record)
-        expect(marc_record['001'].value).to eq(marc_001_value)
+      it 'returns the expected source record when one source record is found' do
+        source_record = instance.find_source_record(instance_record_id: instance_record_id)
         expect(source_record).to have_key('parsedRecord')
       end
 
@@ -187,7 +185,7 @@ RSpec.describe FolioApiClient::Finders do
         end
 
         it 'returns nil' do
-          expect(instance.find_marc_record(instance_record_id: instance_record_id)).to eq(nil)
+          expect(instance.find_source_record(instance_record_id: instance_record_id)).to eq(nil)
         end
       end
 
@@ -210,7 +208,7 @@ RSpec.describe FolioApiClient::Finders do
 
         it 'raises an error' do
           expect {
-            instance.find_marc_record(instance_record_id: instance_record_id)
+            instance.find_source_record(instance_record_id: instance_record_id)
           }.to raise_error(
             FolioApiClient::Exceptions::UnexpectedMultipleRecordsFoundError
           )
@@ -225,10 +223,8 @@ RSpec.describe FolioApiClient::Finders do
         ).and_return(source_record_response_data)
       end
 
-      it 'returns the expected Marc::Record and source record' do
-        marc_record, source_record = instance.find_marc_record(instance_record_hrid: instance_record_hrid)
-        expect(marc_record).to be_a(MARC::Record)
-        expect(marc_record['001'].value).to eq(marc_001_value)
+      it 'returns the expected source record when one source record is found' do
+        source_record = instance.find_source_record(instance_record_hrid: instance_record_hrid)
         expect(source_record).to have_key('parsedRecord')
       end
     end

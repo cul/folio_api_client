@@ -43,27 +43,23 @@ class FolioApiClient
       instance_search_results.first
     end
 
-    # Find a MARC::Record by its instance record id or instance record hrid
-    # @return [Marc::Record, Hash] An array of length two, with the first element being the MARC::Record and the
-    # # second being the Source Record that holds the MARC record.
-    def find_marc_record(instance_record_id: nil, instance_record_hrid: nil)
+    # Find a source record by its instance record id or instance record hrid.
+    # @return [Hash] A Source Record (which can hold data for a MARC record).
+    def find_source_record(instance_record_id: nil, instance_record_hrid: nil)
       source_record_search_results = self.get(
         '/source-storage/source-records',
         source_record_query(instance_record_id: instance_record_id, instance_record_hrid: instance_record_hrid)
       )
-      total_records = source_record_search_results['totalRecords']
-      return nil if total_records.zero?
+      return nil if source_record_search_results['totalRecords'].zero?
 
-      if total_records > 1
+      if source_record_search_results['totalRecords'] > 1
         raise FolioApiClient::Exceptions::UnexpectedMultipleRecordsFoundError,
               'Only expected one record with this '\
               "#{instance_record_id ? 'instance_record_id' : 'instance_record_hrid'}, "\
               'but found more than one.'
       end
 
-      source_record = source_record_search_results['sourceRecords'].first
-      bib_record_marc_hash = source_record['parsedRecord']['content']
-      [MARC::Record.new_from_hash(bib_record_marc_hash), source_record]
+      source_record_search_results['sourceRecords'].first
     end
 
     def source_record_query(instance_record_id: nil, instance_record_hrid: nil)
