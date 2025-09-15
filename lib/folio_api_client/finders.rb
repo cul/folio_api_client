@@ -15,7 +15,19 @@ class FolioApiClient
     end
 
     def find_location_record(location_id:)
+      return nil if location_id.nil?
+
       self.get("/locations/#{location_id}")
+    rescue Faraday::ResourceNotFound
+      nil
+    end
+
+    def find_material_type_record(material_type_id:)
+      return nil if material_type_id.nil?
+
+      self.get("/material-types/#{material_type_id}")
+    rescue Faraday::ResourceNotFound
+      nil
     end
 
     def find_loan_type_record(loan_type_id:)

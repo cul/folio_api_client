@@ -67,14 +67,77 @@ RSpec.describe FolioApiClient::Finders do
       { 'code' => 'ABC' }
     end
 
-    before do
-      allow(instance).to receive(:get).with(
-        "/locations/#{location_id}"
-      ).and_return(location_record)
+    it 'returns nil when the given location_id is nil' do
+      expect(instance.find_location_record(location_id: nil)).to eq(nil)
     end
 
-    it 'returns the location data' do
-      expect(instance.find_location_record(location_id: location_id)).to eq(location_record)
+    context 'for a valid location id' do
+      before do
+        allow(instance).to receive(:get).with(
+          "/locations/#{location_id}"
+        ).and_return(location_record)
+      end
+
+      it 'returns the location data' do
+        expect(instance.find_location_record(location_id: location_id)).to eq(location_record)
+      end
+    end
+
+    context 'for a location id that cannot be resolved to a valid location' do
+      before do
+        allow(instance).to receive(:get).with(
+          "/locations/#{location_id}"
+        ).and_raise(Faraday::ResourceNotFound)
+      end
+
+      it 'returns nil' do
+        expect(instance.find_location_record(location_id: location_id)).to eq(nil)
+      end
+    end
+  end
+
+  describe '#find_material_type_record' do
+    let(:material_type_id) { 'some-material-type-id' }
+    let(:material_type_record) do
+      {
+        'id' => '16d485ae-9fa3-469d-920a-d4264670636f',
+        'name' => 'Book',
+        'source' => 'local',
+        'metadata' => {
+          'createdDate' => '2025-01-01T01:02:03.123+00:00',
+          'createdByUserId' => '1e3444ea-9d6d-408d-97be-38139bc08789',
+          'updatedDate' => '2025-02-02T04:05:06.456+00:00',
+          'updatedByUserId' => '08e3baf4-18b4-4789-9105-209fc76fa70az'
+        }
+      }
+    end
+
+    it 'returns nil when the given material_type_id is nil' do
+      expect(instance.find_material_type_record(material_type_id: nil)).to eq(nil)
+    end
+
+    context 'for a valid material type' do
+      before do
+        allow(instance).to receive(:get).with(
+          "/material-types/#{material_type_id}"
+        ).and_return(material_type_record)
+      end
+
+      it 'returns the material type data' do
+        expect(instance.find_material_type_record(material_type_id: material_type_id)).to eq(material_type_record)
+      end
+    end
+
+    context 'for a material type id that cannot be resolved to a valid material type' do
+      before do
+        allow(instance).to receive(:get).with(
+          "/material-types/#{material_type_id}"
+        ).and_raise(Faraday::ResourceNotFound)
+      end
+
+      it 'returns nil' do
+        expect(instance.find_material_type_record(material_type_id: material_type_id)).to eq(nil)
+      end
     end
   end
 

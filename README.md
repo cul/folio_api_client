@@ -47,6 +47,7 @@ client.delete(path, body, content_type: 'application/json'))
 
 client.find_item_record(barcode: 'some-barcode')
 client.find_location_record(location_id: 'some-location-id')
+client.find_material_type_record(material_type_id: 'some-material-type-id')
 client.find_holdings_record(holdings_record_id: 'some-holdings-record-id')
 client.find_instance_record(instance_record_id: 'some-instance-record-id')
 client.find_instance_record(instance_record_hrid: 'some-instance-record-hrid')
