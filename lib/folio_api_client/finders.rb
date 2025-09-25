@@ -14,10 +14,26 @@ class FolioApiClient
       item_search_results.first
     end
 
-    def find_location_record(location_id:)
-      return nil if location_id.nil?
+    def find_location_record(location_id: nil, code: nil) # rubocop:disable Metrics/MethodLength
+      if location_id
+        return self.get("/locations/#{location_id}")
+      elsif code
+        location_record_search_results = self.get(
+          '/locations',
+          location_record_query(code: code)
+        )['locations']
 
-      self.get("/locations/#{location_id}")
+        return nil if location_record_search_results.empty?
+
+        if location_record_search_results.length > 1
+          raise FolioApiClient::Exceptions::UnexpectedMultipleRecordsFoundError,
+                'Only expected one location with this code, but found more than one.'
+        end
+
+        return location_record_search_results.first
+      end
+
+      nil
     rescue Faraday::ResourceNotFound
       nil
     end
@@ -88,6 +104,13 @@ class FolioApiClient
 
       raise FolioApiClient::Exceptions::MissingQueryFieldError,
             'Missing query field.  Must supply either an instance_record_id or instance_record_hrid.'
+    end
+
+    def location_record_query(code: nil)
+      return { query: "code==#{code}", limit: 2 } if code
+
+      raise FolioApiClient::Exceptions::MissingQueryFieldError,
+            'Missing query field.  Must supply a code.'
     end
   end
 end

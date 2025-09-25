@@ -62,36 +62,74 @@ RSpec.describe FolioApiClient::Finders do
   end
 
   describe '#find_location_record' do
-    let(:location_id) { 'some-location-id' }
+    let(:valid_location_id) { 'some-valid-location-id' }
+    let(:invalid_location_id) { 'some-invalid-location-id' }
+    let(:valid_code) { 'some-valid-code' }
+    let(:invalid_code) { 'some-invalid-code' }
+
     let(:location_record) do
-      { 'code' => 'ABC' }
+      { 'id' => valid_location_id, 'code' => valid_code }
+    end
+    let(:other_location_record) do
+      { 'id' => 'another-id', 'code' => 'another-code' }
     end
 
-    it 'returns nil when the given location_id is nil' do
-      expect(instance.find_location_record(location_id: nil)).to eq(nil)
+    it 'returns nil when the given location_id and code are nil' do
+      expect(instance.find_location_record(location_id: nil, code: nil)).to eq(nil)
     end
 
-    context 'for a valid location id' do
+    context 'searching by location_id' do
       before do
         allow(instance).to receive(:get).with(
-          "/locations/#{location_id}"
+          "/locations/#{valid_location_id}"
         ).and_return(location_record)
-      end
 
-      it 'returns the location data' do
-        expect(instance.find_location_record(location_id: location_id)).to eq(location_record)
-      end
-    end
-
-    context 'for a location id that cannot be resolved to a valid location' do
-      before do
         allow(instance).to receive(:get).with(
-          "/locations/#{location_id}"
+          "/locations/#{invalid_location_id}"
         ).and_raise(Faraday::ResourceNotFound)
       end
 
-      it 'returns nil' do
-        expect(instance.find_location_record(location_id: location_id)).to eq(nil)
+      it 'returns the location data for a valid location_id' do
+        expect(instance.find_location_record(location_id: valid_location_id)).to eq(location_record)
+      end
+
+      it 'returns the nil for an invalid location_id' do
+        expect(instance.find_location_record(location_id: invalid_location_id)).to eq(nil)
+      end
+    end
+
+    context 'searching by code' do
+      let(:location_api_search_results) { [location_record] }
+
+      before do
+        allow(instance).to receive(:get).with(
+          '/locations', { limit: 2, query: "code==#{valid_code}" }
+        ).and_return({ 'locations' => location_api_search_results })
+
+        allow(instance).to receive(:get).with(
+          '/locations', { limit: 2, query: "code==#{invalid_code}" }
+        ).and_return({ 'locations' => [] })
+      end
+
+      it 'returns the location data for a valid location_id, selecting the location with the exact code match '\
+          'when there are multiple results returned from the underlying location search' do
+        expect(instance.find_location_record(code: valid_code)).to eq(location_record)
+      end
+
+      it 'returns the nil for an invalid location_id' do
+        expect(instance.find_location_record(code: invalid_code)).to eq(nil)
+      end
+
+      context 'when multiple location search results are found for a given code' do
+        let(:location_api_search_results) { [location_record, other_location_record] }
+
+        it 'raises an error' do
+          expect {
+            instance.find_location_record(code: valid_code)
+          }.to raise_error(
+            FolioApiClient::Exceptions::UnexpectedMultipleRecordsFoundError
+          )
+        end
       end
     end
   end
