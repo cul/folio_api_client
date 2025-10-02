@@ -331,6 +331,96 @@ RSpec.describe FolioApiClient::Finders do
     end
   end
 
+  describe '#find_source_marc_records' do
+    let(:modified_since) { '2025-01-01T00:00:00Z' }
+    let(:marc_content) do
+      {
+        'fields' => [
+          { '001' => '12345' },
+          { '245' => { 'ind1' => '0', 'ind2' => '0', 'subfields' => [{ 'a' => 'Test Title' }] } }
+        ]
+      }
+    end
+    let(:source_record_with_marc) do
+      {
+        'recordId' => 'record-1',
+        'parsedRecord' => { 'content' => marc_content }
+      }
+    end
+
+    before do
+      allow(instance).to receive(:get).with(
+        'source-storage/source-records', { limit: 100, offset: 0, updatedAfter: modified_since }
+      ).and_return({
+        'totalRecords' => 1,
+        'sourceRecords' => [source_record_with_marc]
+      })
+    end
+
+    context 'when called with a block' do
+      it 'yields MARC content for each source record' do
+        yielded_records = []
+        instance.find_source_marc_records(modified_since) do |marc_record|
+          yielded_records << marc_record
+        end
+
+        expect(yielded_records).to eq([marc_content])
+      end
+    end
+
+    context 'when called without modified_since parameter' do
+      before do
+        allow(instance).to receive(:get).with(
+          'source-storage/source-records', { limit: 100, offset: 0 }
+        ).and_return({
+          'totalRecords' => 1,
+          'sourceRecords' => [source_record_with_marc]
+        })
+      end
+
+      it 'makes API call without updatedAfter parameter' do
+        instance.find_source_marc_records(nil) { |_| }
+        expect(instance).to have_received(:get).with(
+          'source-storage/source-records', { limit: 100, offset: 0 }
+        )
+      end
+    end
+
+    context 'with pagination' do
+      let(:page1_response) do
+        {
+          'totalRecords' => 101,
+          'sourceRecords' => [source_record_with_marc]
+        }
+      end
+      let(:page2_response) do
+        {
+          'totalRecords' => 101,
+          'sourceRecords' => [source_record_with_marc]
+        }
+      end
+
+      before do
+        allow(instance).to receive(:get).with(
+          'source-storage/source-records', { limit: 100, offset: 0, updatedAfter: modified_since }
+        ).and_return(page1_response)
+        allow(instance).to receive(:get).with(
+          'source-storage/source-records', { limit: 100, offset: 100, updatedAfter: modified_since }
+        ).and_return(page2_response)
+      end
+
+      it 'handles paginated responses correctly' do
+        yielded_records = []
+        instance.find_source_marc_records(modified_since) do |marc_record|
+          yielded_records << marc_record
+        end
+
+        expect(yielded_records.length).to eq(2)
+        expect(instance).to have_received(:get).twice
+      end
+    end
+  end
+
   describe '#source_record_query' do
     let(:instance_record_id) { 'instance-record-id' }
     let(:instance_record_hrid) { 'instance-record-hrid' }

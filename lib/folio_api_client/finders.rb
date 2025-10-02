@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 class FolioApiClient
-  module Finders
+  module Finders # rubocop:disable Metrics/ModuleLength
     def find_item_record(barcode:)
       item_search_results = self.get('/item-storage/items', { query: "barcode==#{barcode}", limit: 2 })['items']
       return nil if item_search_results.empty?
@@ -90,6 +90,25 @@ class FolioApiClient
       source_record_search_results['sourceRecords'].first
     end
 
+    def find_source_marc_records(modified_since)
+      query = marc_records_query(modified_since: modified_since)
+
+      loop do
+        response = self.get('source-storage/source-records', query)
+
+        if block_given?
+          response['sourceRecords'].each do |source_record|
+            marc_content = source_record.dig('parsedRecord', 'content')
+            yield(marc_content) if marc_content
+          end
+        end
+
+        break if (query[:offset] + query[:limit]) >= response['totalRecords']
+
+        query[:offset] += query[:limit]
+      end
+    end
+
     def source_record_query(instance_record_id: nil, instance_record_hrid: nil)
       return { instanceId: instance_record_id } if instance_record_id
       return { instanceHrid: instance_record_hrid } if instance_record_hrid
@@ -111,6 +130,12 @@ class FolioApiClient
 
       raise FolioApiClient::Exceptions::MissingQueryFieldError,
             'Missing query field.  Must supply a code.'
+    end
+
+    def marc_records_query(modified_since: nil)
+      params = { limit: 100, offset: 0 }
+      params[:updatedAfter] = modified_since if modified_since
+      params
     end
   end
 end
