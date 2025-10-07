@@ -90,22 +90,23 @@ class FolioApiClient
       source_record_search_results['sourceRecords'].first
     end
 
-    def find_source_marc_records(modified_since)
-      query = marc_records_query(modified_since: modified_since)
+    def find_source_marc_records(modified_since, has_965hyacinth: false, &block)
+      query = marc_records_query(modified_since: modified_since, has_965hyacinth: has_965hyacinth)
 
       loop do
-        response = self.get('source-storage/source-records', query)
-
-        if block_given?
-          response['sourceRecords'].each do |source_record|
-            marc_content = source_record.dig('parsedRecord', 'content')
-            yield(marc_content) if marc_content
-          end
-        end
-
+        response = self.get('search/instances', query)
+        process_marc_for_instance(response['instances'], &block) if block
         break if (query[:offset] + query[:limit]) >= response['totalRecords']
 
         query[:offset] += query[:limit]
+      end
+    end
+
+    def process_marc_for_instance(instances, &block)
+      instances.each do |instance|
+        source_record = find_source_record(instance_record_id: instance['id'])
+        marc_content = source_record.dig('parsedRecord', 'content')
+        yield(marc_content) if marc_content && block
       end
     end
 
@@ -132,9 +133,19 @@ class FolioApiClient
             'Missing query field.  Must supply a code.'
     end
 
-    def marc_records_query(modified_since: nil)
+    def marc_records_query(modified_since: nil, has_965hyacinth: false)
       params = { limit: 100, offset: 0 }
-      params[:updatedAfter] = modified_since if modified_since
+
+      if modified_since.nil? && !has_965hyacinth
+        raise FolioApiClient::Exceptions::MissingQueryFieldError,
+              'Missing query field.  Must supply either modified_since or has_965hyacinth=true.'
+      end
+
+      query_parts = []
+      query_parts << "metadata.updatedDate>=\"#{modified_since}\"" if modified_since
+      query_parts << 'identifiers.value="965hyacinth"' if has_965hyacinth
+
+      params[:query] = query_parts.join(' and ')
       params
     end
   end
