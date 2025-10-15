@@ -331,6 +331,80 @@ RSpec.describe FolioApiClient::Finders do
     end
   end
 
+  describe '#find_source_marc_records' do
+    let(:modified_since) { '2025-01-01T00:00:00Z' }
+    let(:value_965) { '965hyacinth' }
+    let(:marc_content) { { 'fields' => [{ '001' => '12345' }] } }
+    let(:instance_record) { { 'id' => 'instance-123' } }
+    let(:instances_response) { { 'totalRecords' => 1, 'instances' => [instance_record] } }
+
+    before do
+      allow(instance).to receive(:find_source_record).and_return({ 'parsedRecord' => { 'content' => marc_content } })
+    end
+
+    context 'with modified_since parameter' do
+      before do
+        allow(instance).to receive(:get).with(
+          'search/instances', { query: "metadata.updatedDate>=\"#{modified_since}\"", limit: 100, offset: 0 }
+        ).and_return(instances_response)
+      end
+
+      it 'yields MARC content for each source record' do
+        yielded_records = []
+        instance.find_source_marc_records(modified_since: modified_since) { |record| yielded_records << record }
+        expect(yielded_records).to eq([marc_content])
+      end
+
+      it 'raises an exception if the given modified_since parameter is an invalid format' do
+        expect {
+          instance.find_source_marc_records(modified_since: 'banana') { |_| }
+        }.to raise_error(ArgumentError)
+      end
+    end
+
+    context 'with with_965_value parameter' do
+      before do
+        allow(instance).to receive(:get).with(
+          'search/instances', { query: %(identifiers.value="#{value_965}"), limit: 100, offset: 0 }
+        ).and_return(instances_response)
+      end
+
+      it 'uses the correct query' do
+        instance.find_source_marc_records(with_965_value: value_965) { |_| }
+        expect(instance).to have_received(:get).with(
+          'search/instances', { query: 'identifiers.value="965hyacinth"', limit: 100, offset: 0 }
+        )
+      end
+    end
+
+    context 'with modified_since and with_965_value parameters' do
+      before do
+        allow(instance).to receive(:get).with(
+          'search/instances', {
+            query: %(metadata.updatedDate>="#{modified_since}" and identifiers.value="#{value_965}"),
+            limit: 100, offset: 0
+          }
+        ).and_return(instances_response)
+      end
+
+      it 'combines both filters' do
+        instance.find_source_marc_records(modified_since: modified_since, with_965_value: value_965) { |_| }
+        expect(instance).to have_received(:get).with(
+          'search/instances', {
+            query: %(metadata.updatedDate>="#{modified_since}" and identifiers.value="#{value_965}"),
+            limit: 100, offset: 0
+          }
+        )
+      end
+    end
+
+    it 'raises an error when no parameters provided' do
+      expect {
+        instance.find_source_marc_records { |_| }
+      }.to raise_error(FolioApiClient::Exceptions::MissingQueryFieldError)
+    end
+  end
+
   describe '#source_record_query' do
     let(:instance_record_id) { 'instance-record-id' }
     let(:instance_record_hrid) { 'instance-record-hrid' }
