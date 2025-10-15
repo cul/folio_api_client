@@ -90,8 +90,8 @@ class FolioApiClient
       source_record_search_results['sourceRecords'].first
     end
 
-    def find_source_marc_records(modified_since, has_965hyacinth: false, &block)
-      query = marc_records_query(modified_since: modified_since, has_965hyacinth: has_965hyacinth)
+    def find_source_marc_records(modified_since: nil, with_965_value: nil, &block)
+      query = marc_records_query(modified_since: modified_since, with_965_value: with_965_value)
 
       loop do
         response = self.get('search/instances', query)
@@ -105,6 +105,8 @@ class FolioApiClient
     def process_marc_for_instance(instances, &block)
       instances.each do |instance|
         source_record = find_source_record(instance_record_id: instance['id'])
+        next if source_record.nil? # Occasionally, we find an instance record without a source record.  Skip these.
+
         marc_content = source_record.dig('parsedRecord', 'content')
         yield(marc_content) if marc_content && block
       end
@@ -133,17 +135,22 @@ class FolioApiClient
             'Missing query field.  Must supply a code.'
     end
 
-    def marc_records_query(modified_since: nil, has_965hyacinth: false)
+    def marc_records_query(modified_since: nil, with_965_value: nil) # rubocop:disable Metrics/MethodLength
       params = { limit: 100, offset: 0 }
 
-      if modified_since.nil? && !has_965hyacinth
+      if modified_since.nil? && with_965_value.nil?
         raise FolioApiClient::Exceptions::MissingQueryFieldError,
-              'Missing query field.  Must supply either modified_since or has_965hyacinth=true.'
+              'Missing query field.  Must supply either modified_since or with_965_value.'
+      end
+
+      if modified_since && !modified_since.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/)
+        raise ArgumentError,
+              %(Invalid format for modified_since argument. Must be a date string like "2025-10-03T16:49:00Z".)
       end
 
       query_parts = []
       query_parts << "metadata.updatedDate>=\"#{modified_since}\"" if modified_since
-      query_parts << 'identifiers.value="965hyacinth"' if has_965hyacinth
+      query_parts << %(identifiers.value="#{with_965_value}") if with_965_value
 
       params[:query] = query_parts.join(' and ')
       params
