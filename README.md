@@ -54,6 +54,9 @@ client.find_instance_record(instance_record_id: 'some-instance-record-id')
 client.find_instance_record(instance_record_hrid: 'some-instance-record-hrid')
 client.find_source_record(instance_record_id: 'some-instance-record-id')
 client.find_source_record(instance_record_hrid: 'some-instance-record-hrid')
+client.find_source_marc_records(modified_since: '2025-01-01T00:00:00Z') { |marc_record_hash| }
+client.find_source_marc_records(with_965_value: '965abc') { |marc_record_hash| }
+client.find_source_marc_records(modified_since: '2025-01-01T00:00:00Z', with_965_value: '965abc') { |marc_record_hash| }
 
 # Convert a FOLIO MARC source record to a marc gem MARC::Record object:
 source_record = client.find_source_record(instance_record_id: 'some-instance-record-id')
