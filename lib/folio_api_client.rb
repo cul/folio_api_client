@@ -57,6 +57,12 @@ class FolioApiClient
 
     # Re-run block
     yield
+  rescue Faraday::ConnectionFailed
+    # If we make too many rapid requests in a row, FOLIO sometimes disconnects.
+    # If this happens, we'll sleep for a little while and retry the request.
+    sleep 5
+    # Re-run block
+    yield
   end
 
   def get(path, params = {})

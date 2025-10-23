@@ -331,12 +331,31 @@ RSpec.describe FolioApiClient::Finders do
     end
   end
 
+  describe '#with_uuid_prefixes' do
+    it 'yields the expected prefixes' do
+      expect { |b|
+        instance.with_uuid_prefixes(&b)
+      }.to yield_successive_args(
+        '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
+        'a', 'b', 'c', 'd', 'e', 'f'
+      )
+    end
+  end
+
   describe '#find_source_marc_records' do
     let(:modified_since) { '2025-01-01T00:00:00Z' }
     let(:value_965) { '965hyacinth' }
     let(:marc_content) { { 'fields' => [{ '001' => '12345' }] } }
-    let(:instance_record) { { 'id' => 'instance-123' } }
-    let(:instances_response) { { 'totalRecords' => 1, 'instances' => [instance_record] } }
+    let(:instance_record_1) { { 'id' => 'instance-123' } }
+    let(:instance_record_2) { { 'id' => 'instance-456' } }
+    let(:instances) { [instance_record_1, instance_record_2] }
+    let(:total_records) { instances.length }
+    let(:instances_response) { { 'totalRecords' => total_records, 'instances' => instances } }
+    let(:uuid_prefixes) do
+      arr = []
+      instance.with_uuid_prefixes { |uuid_prefix| arr << uuid_prefix }
+      arr
+    end
 
     before do
       allow(instance).to receive(:find_source_record).and_return({ 'parsedRecord' => { 'content' => marc_content } })
@@ -344,15 +363,85 @@ RSpec.describe FolioApiClient::Finders do
 
     context 'with modified_since parameter' do
       before do
+        # Allow first query for getting total result count
         allow(instance).to receive(:get).with(
-          'search/instances', { query: "metadata.updatedDate>=\"#{modified_since}\"", limit: 100, offset: 0 }
+          'search/instances',
+          { query: "metadata.updatedDate>=\"#{modified_since}\" and staffSuppress==false", limit: 0, offset: 0 }
         ).and_return(instances_response)
+
+        # Allow uuid-prefix-bucket queries for aggregating actual results
+        uuid_prefixes.each do |uuid_prefix|
+          allow(instance).to receive(:get).with(
+            'search/instances',
+            {
+              query: %(metadata.updatedDate>="#{modified_since}" and staffSuppress==false and id="#{uuid_prefix}*"),
+              limit: 100,
+              offset: 0
+            }
+          ).and_return(instances_response)
+        end
       end
 
-      it 'yields MARC content for each source record' do
-        yielded_records = []
-        instance.find_source_marc_records(modified_since: modified_since) { |record| yielded_records << record }
-        expect(yielded_records).to eq([marc_content])
+      it 'retrieves records in batches based on uuid prefix' do
+        # Expect the first /search/instances query to be one that just fetches the total record count
+        # (and has a limit of 0 because we don't need results to be returned for the record count query).
+        expect(instance).to receive(:get).with(
+          'search/instances',
+          { query: "metadata.updatedDate>=\"#{modified_since}\" and staffSuppress==false", limit: 0, offset: 0 }
+        )
+
+        # Then expect queries for each uuid prefix batch
+        uuid_prefixes.each do |uuid_prefix|
+          expect(instance).to receive(:get).with(
+            'search/instances',
+            {
+              query: %(metadata.updatedDate>="#{modified_since}" and staffSuppress==false and id="#{uuid_prefix}*"),
+              limit: 100,
+              offset: 0
+            }
+          ).and_return(instances_response)
+        end
+
+        instance.find_source_marc_records(modified_since: modified_since) { |_| }
+      end
+
+      it 'yields MARC content for each source record' do # rubocop:disable RSpec/ExampleLength
+        expect { |b|
+          instance.find_source_marc_records(modified_since: modified_since, &b)
+        }.to yield_successive_args(
+          [marc_content, total_records], # batch 0, record 1
+          [marc_content, total_records], # batch 0, record 2
+          [marc_content, total_records], # batch 1, record 1
+          [marc_content, total_records], # batch 1, record 2
+          [marc_content, total_records], # batch 2, record 1
+          [marc_content, total_records], # batch 2, record 2
+          [marc_content, total_records], # batch 3, record 1
+          [marc_content, total_records], # batch 3, record 2
+          [marc_content, total_records], # batch 4, record 1
+          [marc_content, total_records], # batch 4, record 2
+          [marc_content, total_records], # batch 5, record 1
+          [marc_content, total_records], # batch 5, record 2
+          [marc_content, total_records], # batch 6, record 1
+          [marc_content, total_records], # batch 6, record 2
+          [marc_content, total_records], # batch 7, record 1
+          [marc_content, total_records], # batch 7, record 2
+          [marc_content, total_records], # batch 8, record 1
+          [marc_content, total_records], # batch 8, record 2
+          [marc_content, total_records], # batch 9, record 1
+          [marc_content, total_records], # batch 9, record 2
+          [marc_content, total_records], # batch a, record 1
+          [marc_content, total_records], # batch a, record 2
+          [marc_content, total_records], # batch b, record 1
+          [marc_content, total_records], # batch b, record 2
+          [marc_content, total_records], # batch c, record 1
+          [marc_content, total_records], # batch c, record 2
+          [marc_content, total_records], # batch d, record 1
+          [marc_content, total_records], # batch d, record 2
+          [marc_content, total_records], # batch e, record 1
+          [marc_content, total_records], # batch e, record 2
+          [marc_content, total_records], # batch f, record 1
+          [marc_content, total_records]  # batch f, record 2
+        )
       end
 
       it 'raises an exception if the given modified_since parameter is an invalid format' do
@@ -364,37 +453,85 @@ RSpec.describe FolioApiClient::Finders do
 
     context 'with with_965_value parameter' do
       before do
+        # Allow first query for getting total result count
         allow(instance).to receive(:get).with(
-          'search/instances', { query: %(identifiers.value="#{value_965}"), limit: 100, offset: 0 }
+          'search/instances',
+          { query: %(identifiers.value="#{value_965}" and staffSuppress==false), limit: 0, offset: 0 }
         ).and_return(instances_response)
+
+        # Allow uuid-prefix-bucket queries for aggregating actual results
+        uuid_prefixes.each do |uuid_prefix|
+          allow(instance).to receive(:get).with(
+            'search/instances',
+            {
+              query: %(identifiers.value="#{value_965}" and staffSuppress==false and id="#{uuid_prefix}*"),
+              limit: 100,
+              offset: 0
+            }
+          ).and_return(instances_response)
+        end
       end
 
       it 'uses the correct query' do
         instance.find_source_marc_records(with_965_value: value_965) { |_| }
-        expect(instance).to have_received(:get).with(
-          'search/instances', { query: 'identifiers.value="965hyacinth"', limit: 100, offset: 0 }
-        )
+
+        # Then expect queries for each uuid prefix batch
+        uuid_prefixes.each do |uuid_prefix|
+          expect(instance).to have_received(:get).with(
+            'search/instances',
+            {
+              query: %(identifiers.value="#{value_965}" and staffSuppress==false and id="#{uuid_prefix}*"),
+              limit: 100,
+              offset: 0
+            }
+          )
+        end
       end
     end
 
     context 'with modified_since and with_965_value parameters' do
       before do
+        # Allow first query for getting total result count
         allow(instance).to receive(:get).with(
-          'search/instances', {
-            query: %(metadata.updatedDate>="#{modified_since}" and identifiers.value="#{value_965}"),
-            limit: 100, offset: 0
+          'search/instances',
+          {
+            query: %(metadata.updatedDate>="#{modified_since}" and identifiers.value="#{value_965}" and staffSuppress==false), # rubocop:disable Layout/LineLength
+            limit: 0,
+            offset: 0
           }
         ).and_return(instances_response)
+
+        puts %(
+          multiline!
+          cool!
+          cool!
+        )
+
+        # Allow uuid-prefix-bucket queries for aggregating actual results
+        uuid_prefixes.each do |uuid_prefix|
+          allow(instance).to receive(:get).with(
+            'search/instances',
+            {
+              query: %(metadata.updatedDate>="#{modified_since}" and identifiers.value="#{value_965}" and staffSuppress==false and id="#{uuid_prefix}*"), # rubocop:disable Layout/LineLength
+              limit: 100,
+              offset: 0
+            }
+          ).and_return(instances_response)
+        end
       end
 
       it 'combines both filters' do
         instance.find_source_marc_records(modified_since: modified_since, with_965_value: value_965) { |_| }
-        expect(instance).to have_received(:get).with(
-          'search/instances', {
-            query: %(metadata.updatedDate>="#{modified_since}" and identifiers.value="#{value_965}"),
-            limit: 100, offset: 0
-          }
-        )
+
+        # Then expect queries for each uuid prefix batch
+        uuid_prefixes.each do |uuid_prefix|
+          expect(instance).to have_received(:get).with(
+            'search/instances', {
+              query: %(metadata.updatedDate>="#{modified_since}" and identifiers.value="#{value_965}" and staffSuppress==false and id="#{uuid_prefix}*"), # rubocop:disable Layout/LineLength
+              limit: 100, offset: 0
+            }
+          )
+        end
       end
     end
 
