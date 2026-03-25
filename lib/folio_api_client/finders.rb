@@ -3,7 +3,7 @@
 class FolioApiClient
   module Finders # rubocop:disable Metrics/ModuleLength
     def find_item_record(barcode:)
-      item_search_results = self.get('/item-storage/items', { query: "barcode==#{barcode}", limit: 2 })['items']
+      item_search_results = self.get('/item-storage/items', { query: %(barcode=="#{barcode}"), limit: 2 })['items']
       return nil if item_search_results.empty?
 
       if item_search_results.length > 1

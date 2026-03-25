@@ -25,7 +25,7 @@ RSpec.describe FolioApiClient::Finders do
     context 'when the barcode resolves to only one item record' do
       before do
         allow(instance).to receive(:get).with(
-          '/item-storage/items', { query: "barcode==#{barcode}", limit: 2 }
+          '/item-storage/items', { query: %(barcode=="#{barcode}"), limit: 2 }
         ).and_return({ 'items' => [item_record1] })
       end
 
@@ -37,7 +37,7 @@ RSpec.describe FolioApiClient::Finders do
     context 'when the barcode resolves to zero item records' do
       before do
         allow(instance).to receive(:get).with(
-          '/item-storage/items', { query: "barcode==#{barcode}", limit: 2 }
+          '/item-storage/items', { query: %(barcode=="#{barcode}"), limit: 2 }
         ).and_return({ 'items' => [] })
       end
 
@@ -49,7 +49,7 @@ RSpec.describe FolioApiClient::Finders do
     context 'when the barcode resolves to more than one item record' do
       before do
         allow(instance).to receive(:get).with(
-          '/item-storage/items', { query: "barcode==#{barcode}", limit: 2 }
+          '/item-storage/items', { query: %(barcode=="#{barcode}"), limit: 2 }
         ).and_return({ 'items' => [item_record1, item_record2] })
       end
 
